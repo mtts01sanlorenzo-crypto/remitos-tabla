@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Remitos a TABLA GENERAL</title>
+<style>
+:root{--bg:#f6f7f9;--fg:#1c2330;--card:#fff;--bd:#d9dee6;--ac:#1f6f43;--bad:#b3261e;--warn:#8a5a00}
+@media(prefers-color-scheme:dark){:root{--bg:#14181f;--fg:#e8ecf2;--card:#1d232d;--bd:#323a47;--ac:#4cc38a;--bad:#ff8a80;--warn:#ffcc66}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,Segoe UI,sans-serif}
+main{max-width:960px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:1.4rem;margin:.2em 0 .6em}.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px;margin:14px 0}
+label{font-weight:600;display:block;margin-bottom:6px}input[type=text]{width:100%;max-width:340px;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--fg);font-size:1rem}
+#drop{border:2px dashed var(--bd);border-radius:10px;padding:28px 12px;text-align:center;cursor:pointer}#drop.on{border-color:var(--ac);background:rgba(76,195,138,.1)}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:11px 18px;font-size:1rem;font-weight:600;cursor:pointer}button.sec{background:transparent;color:var(--fg);border:1px solid var(--bd)}
+.m{display:flex;gap:12px;flex-wrap:wrap}.m div{flex:1 1 120px;border:1px solid var(--bd);border-radius:8px;padding:8px 12px}.m b{display:block;font-size:1.3rem}
+.bad{color:var(--bad)}.warn{color:var(--warn)}ul{margin:.3em 0;padding-left:1.2em}
+table{border-collapse:collapse;font-size:.82rem;white-space:nowrap}th,td{border:1px solid var(--bd);padding:3px 7px;text-align:right}th{position:sticky;top:0;background:var(--card)}
+.sc{overflow:auto;max-height:340px;border:1px solid var(--bd);border-radius:8px}.hide{display:none}small{opacity:.75}
+</style></head><body><main>
+<h1>🏗️ Remitos de la planta → TABLA GENERAL</h1>
+<div class="card">
+  <label for="planta">Planta (va en la columna PLANTA)</label>
+  <input id="planta" type="text" placeholder="Ej.: TRUJILLO" autocomplete="off">
+  <p><small>Una planta por vez. Los archivos se procesan en tu computadora; no se suben a ningún servidor.</small></p>
+  <div id="drop" tabindex="0">📂 Arrastra aquí los remitos <b>.xls</b> o haz clic para elegirlos<br><small>Puedes seleccionar varios a la vez</small></div>
+  <input id="file" type="file" accept=".xls,.xlsx" multiple class="hide">
+  <p id="lista"><small></small></p>
+</div>
+<div id="res" class="hide">
+  <div class="card"><div class="m" id="mets"></div><div id="avisos"></div><div id="rev"></div>
+    <p><button id="dl">⬇️ Descargar Excel con las filas</button></p></div>
+  <div class="card"><b>Cómo pegarlo en la TABLA GENERAL</b>
+    <ol><li>Abre el Excel descargado, selecciona desde <b>A2</b> hasta la última fila y la columna <b>CS</b> y copia (Ctrl+C).</li>
+    <li>En la TABLA GENERAL haz clic en la <b>columna A de la primera fila vacía</b> debajo de la tabla.</li>
+    <li>Pega con <b>Pegado especial → Omitir blancos</b> (Ctrl+Alt+V) para no borrar las fórmulas de la tabla.</li></ol>
+    <small>La hoja “Cobertura” del Excel dice qué columnas llena el remito y cuáles no.</small></div>
+  <div class="card"><b>Vista previa</b> <small>(solo columnas con datos)</small><div class="sc" id="prev"></div></div>
+</div>
+<div id="err" class="card bad hide"></div>
+</main>
+<script src="vendor/xlsx.full.min.js"></script><script src="headers.js"></script><script src="logica.js"></script>
+<script>
+const $=id=>document.getElementById(id);let archivos=[],ultimo=null;
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+try{$("planta").value=localStorage.getItem("planta")||""}catch(e){}
+$("drop").onclick=()=>$("file").click();
+$("drop").ondragover=e=>{e.preventDefault();$("drop").classList.add("on")};
+$("drop").ondragleave=()=>$("drop").classList.remove("on");
+$("drop").ondrop=e=>{e.preventDefault();$("drop").classList.remove("on");agregar(e.dataTransfer.files)};
+$("file").onchange=e=>{agregar(e.target.files);e.target.value=""};
+$("planta").oninput=()=>{try{localStorage.setItem("planta",$("planta").value)}catch(e){}if(archivos.length)procesar()};
+async function agregar(fl){fl=Array.from(fl);for(const f of fl){if(!archivos.some(a=>a.name===f.name&&a.size===f.size))archivos.push({name:f.name,size:f.size,data:new Uint8Array(await f.arrayBuffer())})}procesar()}
+function procesar(){
+  $("err").classList.add("hide");
+  $("lista").innerHTML="<small>"+archivos.length+" archivo(s): "+archivos.map(a=>esc(a.name)).join(", ")+" · <a href='#' id='limpiar'>quitar todos</a></small>";
+  $("limpiar").onclick=e=>{e.preventDefault();archivos=[];$("res").classList.add("hide");$("lista").innerHTML=""};
+  let r;try{r=Logica.preparar(XLSX,archivos,$("planta").value)}catch(e){$("err").textContent="Error inesperado: "+e.message;$("err").classList.remove("hide");return}
+  ultimo=r;
+  if(r.vacio){$("res").classList.add("hide");$("err").innerHTML=r.avisos.map(esc).join("<br>");$("err").classList.remove("hide");return}
+  const dm=s=>{const d=new Date(Math.round((s-25569)*86400000));return String(d.getUTCDate()).padStart(2,"0")+"/"+String(d.getUTCMonth()+1).padStart(2,"0")};
+  $("mets").innerHTML=[["Remitos",r.n_remitos],["Ciclos manuales",r.n_ciclos],["m³",r.m3.toLocaleString("es-PE",{maximumFractionDigits:1})],["Fechas",r.f_ini?dm(r.f_ini)+" – "+dm(r.f_fin):"—"]].map(([a,b])=>`<div>${a}<b>${b}</b></div>`).join("");
+  $("avisos").innerHTML=r.avisos.length?"<ul class='warn'>"+r.avisos.map(a=>"<li>"+esc(a)+"</li>").join("")+"</ul>":"";
+  $("rev").innerHTML=r.revisar.length?`<p class="bad"><b>${r.revisar.length} remito(s) con problemas — NO van en la hoja de pegado</b> (están en “REVISAR (no pegar)”):</p><ul class="bad">`+r.revisar.map(([i,m])=>`<li>Informe <b>${esc(i)}</b>: ${esc(m)}</li>`).join("")+"</ul>":"";
+  const H=HEADERS_TG,cols=H.map((_,j)=>j).filter(j=>r.filas.some(f=>f[j]!==null));
+  const val=(v)=>v===null?"":typeof v==="object"?new Date(Math.round((v.serial-25569)*86400000)).toISOString().slice(0,10).split("-").reverse().join("/"):v;
+  $("prev").innerHTML="<table><tr>"+cols.map(j=>"<th>"+esc(H[j])+"</th>").join("")+"</tr>"+r.filas.map((f,i)=>`<tr${r.motivos[i]?" class='bad'":""}>`+cols.map(j=>"<td>"+esc(val(f[j]))+"</td>").join("")+"</tr>").join("")+"</table>";
+  $("res").classList.remove("hide");
+}
+$("dl").onclick=()=>{if(!ultimo||ultimo.vacio)return;
+  const p=n=>{const d=new Date(Math.round((n-25569)*86400000));return d.toISOString().slice(0,10).replace(/-/g,"")};
+  let nom="filas_TABLA_GENERAL";if(ultimo.f_ini){nom+="_"+p(ultimo.f_ini);if(ultimo.f_fin!==ultimo.f_ini)nom+="_"+p(ultimo.f_fin)}
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([ultimo.xlsx],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));a.download=nom+".xlsx";document.body.appendChild(a);a.click();a.remove()};
+</script></body></html>
