@@ -13,7 +13,7 @@
   // ---------- mapeos ----------
   const INSUMO_MAP = {
     "P 67": "P67", "CH 67": "P67", "P 57": "P 57", "P 89": "P 89", "ARE 1": "ARE 1", "ARE 2": "ARE 2",
-    "CM-MS": "CM-MS", "CM-MS2": "CM-MS", "CEM HS": "CEM HS", "CEM T1": "CEM T1", "CEM TV": "CEM TV",
+    "CM-MS": "CM-MS", "CM-MS2": "CM-MS", "R-20274": "R 2027", "CEM HS": "CEM HS", "CEM T1": "CEM T1", "CEM TV": "CEM TV",
     "AG": "AGUA", "SP4": "PLASTSP4", "R-38": "R-38", "R 2027": "R 2027",
   };
   const COLS = {
@@ -115,7 +115,7 @@
         }
       }
       d.tot_masa_cor = null; d.tot_masa_dosif = null;
-      const alertas = [];
+      const alertas = [], notas = [];
       let hdr = -1;
       for (let r = r0; r < r1; r++) if (str(cell(r, 0)) === "Codigo") { hdr = r; break; }
       if (hdr < 0) {
@@ -154,12 +154,13 @@
       }
       if (esRemito) {
         if (!d.m3) alertas.push("sin m³ (Subciclo/Totales)");
-        if (!d.albaran) alertas.push("sin Albarán n.º");
-        if (!d.cliente) alertas.push("sin cliente (¿cliente creado a último momento?)");
+        if (!d.albaran) notas.push("sin Albarán n.º");
+        if (!d.cliente) notas.push("sin razón social (se escribe SIN RAZON SOCIAL para que igual jale cubos e insumos)");
         if (!d.diseno) alertas.push("sin nombre de fórmula");
       }
       if (!d.fecha || !d.hora_inicio) alertas.push("sin fecha/hora de principio");
       d.alertas = alertas.join("; ");
+      d.notas = notas.join("; ");
       (esRemito ? remitos : ciclos).push(d);
     });
     return { remitos, consumos, ciclos };
@@ -215,9 +216,10 @@
       const put = (L, v) => { row[colIdx(L) - 1] = v; };
       const inf = parseInt(r.informe, 10);
       if (Number.isNaN(inf)) mot.push("N.º de informe no numérico: " + r.informe); else put("A", inf);
+      if (str(r.notas).trim()) avisos.push(`Informe ${r.informe}: ${r.notas}`);
       if (r._manual) { put("B", "MANUAL"); put("M", "MANUAL"); put("Q", "MANUAL"); }
       else {
-        put("B", `${r.cliente_codigo} - ${r.cliente}`);
+        put("B", str(r.cliente).trim() ? `${r.cliente_codigo} - ${r.cliente}` : "SIN RAZON SOCIAL");
         put("M", `Codigo: ${r.diseno_codigo}`);
         put("Q", `Nombre fórmula: ${r.diseno}`);
         put("AD", r.m3 ?? null);
